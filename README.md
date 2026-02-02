@@ -54,12 +54,18 @@ phishpipe-airflow/
     ```
 
 2.  **Set up a Python virtual environment (optional):**
-
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate
-    pip install -r requirements.txt
-    ```
+    - **For MacOS**
+        ```bash
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip install -r requirements.txt
+        ```
+    - **For Windows**
+        ```bash
+        py -m venv .venv
+        .venv/Scripts/activate
+        pip install -r requirements.txt
+        ```
 
 ---
 
@@ -74,18 +80,30 @@ phishpipe-airflow/
     ```
 
 2.  **Run the Airflow webserver:**
-
-    ```bash
-    docker run -d \
-      --name phishpipe-airflow \
-      -p 8080:8080 \
-      -v $(pwd)/dags:/usr/local/airflow/dags \
-      -v $(pwd)/plugins:/usr/local/airflow/plugins \
-      -v $(pwd)/data:/opt/airflow/data \
-      -e LOAD_EX=n \
-      -e EXECUTOR=Sequential \
-      phishpipe-airflow webserver
-    ```
+    - **For MacOS**
+        ```bash
+        docker run -d \
+          --name phishpipe-airflow \
+          -p 8080:8080 \
+          -v $(pwd)/dags:/usr/local/airflow/dags \
+          -v $(pwd)/plugins:/usr/local/airflow/plugins \
+          -v $(pwd)/data:/opt/airflow/data \
+          -e LOAD_EX=n \
+          -e EXECUTOR=Sequential \
+          phishpipe-airflow webserver
+        ```
+    - **For Windows**
+        ```bash
+        docker run -d \
+          --name phishpipe-airflow \
+          -p 8080:8080 \
+          -v $(pwd)/dags:/usr/local/airflow/dags \
+          -v $(pwd)/plugins:/usr/local/airflow/plugins \
+          -v $(pwd)/data:/opt/airflow/data \
+          -e LOAD_EX=n \
+          -e EXECUTOR=Sequential \
+          phishpipe-airflow webserver
+        ```
 
 3.  **Stop and remove the container:**
 
@@ -104,4 +122,3 @@ phishpipe-airflow/
 - **Output:** `/data/phishing_feed.csv`
 
 ---
-
