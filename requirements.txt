@@ -1,0 +1,4 @@
+requests>=2.28          # for HTTP fetching in PhishingGetterOperator
+boto3>=1.26             # for S3PublisherOperator
+python-dotenv==0.21.1   # for reading .env secrets (optional) (compatible with Python 3.7)
+pandas<=1.5               # optional, only if you parse CSVs using pandas (compatible with Python 3.7)
