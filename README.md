@@ -4,17 +4,20 @@
 [![Docker](https://img.shields.io/badge/docker-required-orange)](https://www.docker.com/)
 
 ---
+# 🚧 Project Under Development 
+>All features described below are currently under development.
+---
 
-## 🌊 Overview
+## 🌊 Overview and core idea
 
-**PhishPipe** is an Apache Airflow project designed to automate the process of downloading phishing feed data. It features a custom `PhishingGetterOperator` to handle the data retrieval and storage.
+**PhishPipe** is an Apache Airflow project designed to automate the process of downloading phishing feed data, checking for changes, and uploading it to an S3 bucket if changes are detected.
 
 ---
 
-## ✨ Features
+## ✨ Implemented Features
 
 - **Automated Data Fetching**: Regularly downloads the latest phishing data feeds.
-- **Custom Airflow Operator**: Includes a reusable `PhishingGetterOperator`.
+- **Custom Airflow Operators**: Includes reusable `PhishingGetterOperator` and `ChangeVerifier` operators.
 - **Dockerized Environment**: Easy to set up and run with Docker and Docker Compose.
 - **Clear Project Structure**: Organized for scalability and maintainability.
 
@@ -24,33 +27,59 @@
 
 The project follows a standard Airflow structure:
 
-```
-phishpipe-airflow/
-├── dags/                 # Airflow DAG definitions
-├── plugins/              # Custom Airflow operators
-│   └── operators/        # PhishingGetterOperator
-├── data/                 # Output directory for downloaded feeds
-├── dockerfile            # Container configuration
-└── requirements.txt      # Python dependencies
+```text
+.
+├── dags/                 
+│   └── phishing_pipeline.py   
+├── data/  
+├── plugins/              
+│   ├── operators/        
+│   │   ├── phishing_getter.py
+│   │   └── change_verifier.py
+│   └── config.py
+├── .python-version                                  
+├── docker-compose.yaml        
+├── README.md    
+└── requirements.txt   
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Development Setup (Local)
 
-### Prerequisites
+This project is designed for Apache Airflow 1.10.15, which requires Python 3.7. Using newer Python versions (3.8+) may cause compatibility issues.
 
-- **Docker**: Version 20.x or higher.
-- **Docker Compose**: For easy container management.
-- **Python**: Version 3.7+ (for local development).
+To keep environments consistent, this repository uses pyenv and a project-local virtual environment.
 
-### Installation
+### 🧰 Prerequisites
 
+- **Python**: Version: 3.7.16 **required**
+- **pyenv (recommended for Python version management)**
+- **Docker**: Used for running Airflow
+
+### 🐍 Python Version Management (Important)
+This repository includes a .python-version file which includes the version of python used for this project:
+
+```bash
+3.7.16
+```
+
+If you have pyenv installed, entering the project directory will automatically switch Python to 3.7.16 (Set as local).
+
+If the version is not installed yet, run:
+```bash
+pyenv install 3.7.16
+```
+
+>💡 This does not affect your global Python installation.
+
+### 🧪 Virtual Environment
+It is good practice to create a virtual environment (venv).
 1.  **Clone the repository:**
 
     ```bash
     git clone https://github.com/draganovdimitar2/PhishPipe.git
-    cd phishpipe-airflow
+    cd PhishPipe
     ```
 
 2.  **Set up a Python virtual environment (optional):**
@@ -60,9 +89,9 @@ phishpipe-airflow/
         source .venv/bin/activate
         pip install -r requirements.txt
         ```
-    - **For Windows**
+    - **For Windows (make sure you have python 3.7.16 installed)**:
         ```bash
-        py -m venv .venv
+        py -3.7 -m venv .venv
         .venv/Scripts/activate
         pip install -r requirements.txt
         ```
@@ -70,46 +99,23 @@ phishpipe-airflow/
 ---
 
 ## 🏃‍♂️ Running PhishPipe
+⚠️ Prerequisite: Docker and Docker Compose are required.
 
-### Using Docker (Manual)
+### Using Docker Compose
 
-1.  **Build the Docker image:**
+1.  **Start the Airflow container:**
 
     ```bash
-    docker build -t phishpipe-airflow .
+    docker-compose up -d
     ```
 
-2.  **Run the Airflow webserver:**
-    - **For MacOS**
-        ```bash
-        docker run -d \
-          --name phishpipe-airflow \
-          -p 8080:8080 \
-          -v $(pwd)/dags:/usr/local/airflow/dags \
-          -v $(pwd)/plugins:/usr/local/airflow/plugins \
-          -v $(pwd)/data:/opt/airflow/data \
-          -e LOAD_EX=n \
-          -e EXECUTOR=Sequential \
-          phishpipe-airflow webserver
-        ```
-    - **For Windows**
-        ```bash
-        docker run -d \
-          --name phishpipe-airflow \
-          -p 8080:8080 \
-          -v $(pwd)/dags:/usr/local/airflow/dags \
-          -v $(pwd)/plugins:/usr/local/airflow/plugins \
-          -v $(pwd)/data:/opt/airflow/data \
-          -e LOAD_EX=n \
-          -e EXECUTOR=Sequential \
-          phishpipe-airflow webserver
-        ```
+- The Airflow webserver will be available at: http://localhost:8080
+- The SQLite database is stored within the container at `/usr/local/airflow/airflow.db`.
 
-3.  **Stop and remove the container:**
+2. **Stop and remove containers:**
 
     ```bash
-    docker stop phishpipe-airflow
-    docker rm phishpipe-airflow
+    docker-compose down 
     ```
 
 ---
@@ -117,8 +123,7 @@ phishpipe-airflow/
 ## DAG Details
 
 - **DAG:** `phishing_pipeline`
-- **Action:** Downloads a phishing feed CSV.
+- **Action:** Downloads a phishing feed CSV and then checks if the data has changed since the last download.
 - **Source:** `http://svn.code.sf.net/p/aper/code/phishing_reply_addresses`
-- **Output:** `/data/phishing_feed.csv`
 
 ---
