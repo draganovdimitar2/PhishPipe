@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  airflow:
+    image: puckel/docker-airflow:1.10.9
+    container_name: phishpipe-airflow
+
+    ports:
+      - "8080:8080"
+
+    volumes:
+      - ./dags:/usr/local/airflow/dags
+      - ./plugins:/usr/local/airflow/plugins
+      - ./data:/opt/airflow/data
+
+    environment:
+      LOAD_EX: "n"
+      EXECUTOR: Sequential
+      AIRFLOW__WEBSERVER__SECRET_KEY: dev_only_not_for_production
+
+    command: webserver
