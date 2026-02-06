@@ -1,5 +1,6 @@
 from airflow.models import BaseOperator
 from airflow.utils.decorators import apply_defaults
+from airflow.exceptions import AirflowSkipException
 from pathlib import Path
 import hashlib
 import shutil
@@ -70,14 +71,17 @@ class ChangeVerifier(BaseOperator):
         """
         if not self.previous_file.exists():
             self.log.info("No previous file found. Treating current file as new data.")
-            shutil.copy(self.current_file, self.previous_file)  # overrides previous file with the current one (creates baseline for next run)
+            shutil.copy(self.current_file, self.previous_file)  # creates previous file from current one (creates baseline for next run)
+            self.log.info(f"Baseline file created at {self.previous_file}.")
             return
 
         current_hash = self._hash(self.current_file)
         previous_hash = self._hash(self.previous_file)
+        self.log.info(f"Current file hash: {current_hash}")
+        self.log.info(f"Previous file hash: {previous_hash}")
 
         if current_hash == previous_hash:
-            raise ValueError("Data has not changed since last run")
+            raise AirflowSkipException("Data has not changed since last run")
 
-        self.log.info("Data changed. Updating previous file.")
-        shutil.copy(self.current_file, self.previous_file)
+        self.log.info("Data changed. Updating previous file.")  # if the hashes are different
+        shutil.copy(self.current_file, self.previous_file)  # overwrites previous file in this case
