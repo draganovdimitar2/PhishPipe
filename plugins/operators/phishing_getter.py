@@ -35,8 +35,8 @@ class PhishingGetterOperator(BaseOperator):
             **kwargs
     ):
         super().__init__(*args, **kwargs)
-        self.output_path = output_path
-        self.url = url
+        self.output_path: str = output_path
+        self.url: str = url
 
     def execute(self, context: dict) -> str:
         """

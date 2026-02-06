@@ -6,7 +6,7 @@ import hashlib
 import shutil
 
 
-class ChangeVerifier(BaseOperator):
+class ChangeVerifierOperator(BaseOperator):
     """
     Verifies whether the downloaded data has changed since the previous run.
 
@@ -36,8 +36,8 @@ class ChangeVerifier(BaseOperator):
         **kwargs
     ):
         super().__init__(*args, **kwargs)
-        self.current_file = Path(current_file)
-        self.previous_file = Path(previous_file)
+        self.current_file: Path = Path(current_file)
+        self.previous_file: Path = Path(previous_file)
 
     def _hash(self, path: Path) -> str:
         """
@@ -55,7 +55,7 @@ class ChangeVerifier(BaseOperator):
                 h.update(chunk)  # feed each chunk to the hash
         return h.hexdigest()  # converts internal binary hash to a readable string
 
-    def execute(self, context) -> None:
+    def execute(self, context: dict) -> None:
         """
         Executes the operator.
 
