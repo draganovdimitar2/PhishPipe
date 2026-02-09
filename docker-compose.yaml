@@ -2,8 +2,11 @@ version: "3.8"
 
 services:
   airflow:
-    image: puckel/docker-airflow:1.10.9
+    build: .
     container_name: phishpipe-airflow
+
+    env_file:
+      - .env
 
     ports:
       - "8080:8080"
