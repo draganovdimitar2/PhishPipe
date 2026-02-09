@@ -1,8 +1,11 @@
+alembic==1.12.1
 apache-airflow==1.10.15
 apispec==1.3.3
 argcomplete==1.12.3
 attrs==20.3.0
 Babel==2.14.0
+boto3==1.33.13
+botocore==1.33.13
 cached-property==1.5.2
 cattrs==1.10.0
 certifi==2026.1.4
@@ -39,13 +42,14 @@ importlib-resources==1.5.0
 iso8601==2.1.0
 itsdangerous==1.1.0
 Jinja2==2.11.3
+jmespath==1.0.1
 json-merge-patch==0.2
 jsonschema==3.2.0
 lazy-object-proxy==1.4.3
 lockfile==0.12.2
 Mako==1.2.4
 Markdown==2.6.11
-MarkupSafe<2.1
+MarkupSafe==2.0.1
 marshmallow==2.21.0
 marshmallow-enum==1.5.1
 marshmallow-sqlalchemy==0.23.1
@@ -69,6 +73,7 @@ pytz==2025.2
 pytzdata==2020.1
 PyYAML==6.0.1
 requests==2.23.0
+s3transfer==0.8.2
 setproctitle==1.3.3
 six==1.17.0
 SQLAlchemy==1.4.54
