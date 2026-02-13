@@ -1,7 +1,6 @@
 # 🎣 PhishPipe Airflow Project
 
-[![Python](https://img.shields.io/badge/python-3.7+-blue)](https://www.python.org/)  
-[![Docker](https://img.shields.io/badge/docker-required-orange)](https://www.docker.com/)
+[![Python](https://img.shields.io/badge/python-3.7+-blue)](https://www.python.org/) [![Docker](https://img.shields.io/badge/docker-required-orange)](https://www.docker.com/) [![Airflow](https://img.shields.io/badge/Apache%20Airflow-017CEE?style=flat&logo=Apache%20Airflow&logoColor=white)](https://airflow.apache.org/)
 
 ---
 
@@ -9,7 +8,7 @@
 
 **PhishPipe** is an Apache Airflow project that implements an end-to-end pipeline for ingesting, validating, and publishing a public phishing data feed.
 
-The pipeline uses a custom PhishingGetterOperator to download a free phishing feed provided by Google, persist it locally, and document its structure. A scheduled DAG then verifies whether the newly downloaded data differs from the previous run. If changes are detected, the updated dataset is published to Amazon S3 using a configurable S3PublisherOperator.
+The pipeline uses a custom PhishingGetterOperator to download a free phishing feed provided by Google, persist it locally, and save its content hash in Airflow's metadata DB. A scheduled DAG then verifies whether the newly downloaded hash differs from the previous processed hash. If changes are detected, the updated dataset is published to Amazon S3 using a configurable S3PublisherOperator.
 
 The project is designed to run entirely in a Dockerized Airflow environment, enabling fast local development and testing. DAGs and custom operators are mounted as volumes, allowing changes to be tested immediately using the airflow test command without restarting the scheduler.
 
@@ -18,7 +17,7 @@ The project is designed to run entirely in a Dockerized Airflow environment, ena
 ## ✨ Implemented Features
 
 - **Automated Data Fetching**: Downloads a public phishing feed on a schedule using a custom Airflow operator.
-- **Change Detection**: Verifies whether newly downloaded data differs from the previous run.
+- **Change Detection**: Verifies whether newly downloaded data differs from the previous run using hashes stored in Airflow metadata DB variables.
 - **Custom Airflow Operators**: Implements reusable operators for data ingestion and validation.
 - **Dockerized Airflow Environment**: Runs entirely in Docker using Docker Compose for easy setup and testing.
 - **Clear Project Structure**: Organized to support extensibility and maintainability.
@@ -62,12 +61,31 @@ To keep environments consistent, this repository uses pyenv and a project-local 
 - **pyenv (recommended for Python version management)**
 - **Docker**: Used for running Airflow
 
+### 🔑 Generate Fernet Key
+- Apache Airflow uses a Fernet key to encrypt Variables and Connections stored in the metadata database.
+
+- You must generate a Fernet key before starting the project.
+
+- Run:
+    ```bash
+    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    ```
+- Example output:
+    ```bash
+    LQVB39qyWZVcAeNlF9vEswg-PF35jhwgqThCvhTOMy4=
+    ```
+- Copy the key and paste it like this `AIRFLOW__CORE__FERNET_KEY=your_fernet_key` into `.env` file
+
 ### 📖 Setup .env
-The `.env` file contains AWS credentials, and the expected structure is as follows:
+The `.env` file contains AWS credentials and Fernet key, and the expected structure is as follows:
 ```bash
+# AWS
 AWS_ACCESS_KEY_ID=your_aws_access_key_id
 AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
 AWS_DEFAULT_REGION=your_aws_region
+    
+# Fernet Key (used by Airflow to encrypt/decrypt data in db)
+AIRFLOW__CORE__FERNET_KEY=your_fernet_key
 ```
 You must create this file; otherwise, errors will occur immediately when you run the project.
 
@@ -123,30 +141,46 @@ It is good practice to create a virtual environment (venv).
     airflow test phishing_pipeline change_verifier 2026-02-05 && \
     airflow test phishing_pipeline publisher 2026-02-05"
    ```
-   Then check the logs in the terminal.
+3. **Check the logs in terminal.**
 
 - **Note** that if you use the same data twice, you won’t see any changes in the S3 bucket, even if you delete the object from it.
-  This is because the data is stored inside the container at `opt/airflow/data`, where you will find two files: `phishing_current.csv` and `phishing_previous.csv`.
-  Use the command `rm phishing_current.csv phishing_previous.csv` inside `opt/airflow/data` to delete both files from the container and start testing again.
+  This is because the pipeline stores hash baselines in Airflow metadata DB variables (`phishing_current_hash` and `phishing_previous_hash`).
+  If you want to test from scratch, clear these variables from Airflow UI (**Admin → Variables**) or via CLI inside the container.
 ---
 
 
 ## 🏃‍♂️ Running PhishPipe
-⚠️ Prerequisite: Docker and Docker Compose are required + .env with AWS credentials.
+⚠️ Prerequisite: Docker and Docker Compose are required + .env with AWS credentials and Fernet key.
 
 ### Using Docker Compose
 The project uses a custom Docker image that extends `puckel/docker-airflow:1.10.9` to include additional dependencies (`boto3` for S3 integration).  
 The image is built automatically by Docker Compose and requires .env file with AWS credentials.
+1. **Generate Fernet Key**
+- Apache Airflow uses a Fernet key to encrypt Variables and Connections stored in the metadata database.
+- You must generate a Fernet key before starting the project.
+- Run: 
+    ```bash
+    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    ```
+- Example output:
+    ```bash
+    LQVB39qyWZVcAeNlF9vEswg-PF35jhwgqThCvhTOMy4=
+    ```
+- Copy the key and paste it like this `AIRFLOW__CORE__FERNET_KEY=your_fernet_key` into `.env` file
 
-1. **Setup .env**
+2. **Setup .env**
    - The expected structure of `.env` is as follows:
    ```bash
+    # AWS
     AWS_ACCESS_KEY_ID=your_aws_access_key_id
     AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
     AWS_DEFAULT_REGION=your_aws_region
+    
+    # Fernet Key (used by Airflow to encrypt/decrypt data in db)
+    AIRFLOW__CORE__FERNET_KEY=your_fernet_key
     ```
 
-2. **Start the Airflow container:**
+3. **Start the Airflow container:**
 
     ```bash
     docker-compose up -d
@@ -158,7 +192,7 @@ The image is built automatically by Docker Compose and requires .env file with A
     >    💡 On the first run, Docker Compose will build the custom Airflow image before starting the containers.
 
 
-3. **Stop and remove containers:**
+4. **Stop and remove containers:**
 
     ```bash
     docker-compose down 
@@ -169,7 +203,7 @@ The image is built automatically by Docker Compose and requires .env file with A
 ## DAG Details
 
 - **DAG:** `phishing_pipeline`
-- **Action:** Downloads a phishing feed CSV and then checks whether the data has changed since the last download. If so, the new file is uploaded to the S3 bucket.
+- **Action:** Downloads a phishing feed CSV, compares current vs previous stored hashes, and uploads the current file to S3 only when a change is detected.
 - **Source:** `http://svn.code.sf.net/p/aper/code/phishing_reply_addresses`
 - **Output:** `s3://phishpipe-bucket/phishing/phishing_current.csv`
 
