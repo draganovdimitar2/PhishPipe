@@ -1,9 +1,8 @@
-import requests
-from airflow.models import BaseOperator
-from airflow.utils.decorators import apply_defaults
-from airflow.models import Variable
 import hashlib
 import os
+from typing import Any
+import requests
+from airflow.models import BaseOperator, Variable
 
 
 class PhishingGetterOperator(BaseOperator):
@@ -35,16 +34,14 @@ class PhishingGetterOperator(BaseOperator):
         - Returns the output file path after completion.
     """
 
-    @apply_defaults
     def __init__(
             self,
             output_path: str,
             url: str,
             hash_variable_key: str,
-            *args,
-            **kwargs
+            **kwargs: Any
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         self.output_path: str = output_path
         self.url: str = url
         self.hash_variable_key: str = hash_variable_key
@@ -93,7 +90,6 @@ class PhishingGetterOperator(BaseOperator):
 
         current_hash = hasher.hexdigest()
         Variable.set(self.hash_variable_key, current_hash)
-        self.log.info("Saved downloaded file hash in Airflow metadata DB variable '%s': %s", self.hash_variable_key, current_hash)
+        self.log.info(f"Downloaded and saved to {self.output_path} with hash {current_hash}")
 
-        self.log.info(f"Data written to {self.output_path}")
         return self.output_path

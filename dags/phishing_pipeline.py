@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import timedelta, datetime
 from airflow import DAG
 from operators.phishing_getter import PhishingGetterOperator
 from operators.change_verifier import ChangeVerifierOperator
@@ -12,15 +12,21 @@ from config import (
 
 default_args = {
     'owner': 'airflow',
-    'start_date': datetime(2026, 2, 2),
-    'retries': 1
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
+    'email_on_failure': False,
+    'email_on_retry': False,
 }
 
 with DAG(
         dag_id='phishing_pipeline',
         default_args=default_args,
+        description='Download phishing feed, detect changes, and publish to S3',
         schedule_interval='@daily',
-        catchup=False
+        start_date=datetime(2026, 2, 2),
+        catchup=False,
+        tags=['phishing', 'pipeline', 'data-ingestion'],
+        max_active_runs=1,
 ) as dag:
     downloader = PhishingGetterOperator(
         task_id='downloader',
@@ -28,6 +34,7 @@ with DAG(
         output_path=PHISHING_CURRENT_FILE_PATH,
         hash_variable_key=PHISHING_CURRENT_HASH_VARIABLE_KEY,
     )
+
     change_verifier = ChangeVerifierOperator(
         task_id='change_verifier',
         current_file=PHISHING_CURRENT_FILE_PATH,
@@ -36,10 +43,10 @@ with DAG(
     )
 
     publisher = S3PublisherOperator(
-        task_id="publisher",
-        bucket_name="phishpipe-bucket",
+        task_id='publisher',
+        bucket_name='phishpipe-bucket',
         paths=[PHISHING_CURRENT_FILE_PATH],
-        s3_prefix="phishing",
+        s3_prefix='phishing',
     )
 
     downloader >> change_verifier >> publisher
