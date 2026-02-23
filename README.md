@@ -1,6 +1,28 @@
 # 🎣 PhishPipe Airflow Project
 
-[![Python](https://img.shields.io/badge/python-3.7+-blue)](https://www.python.org/) [![Docker](https://img.shields.io/badge/docker-required-orange)](https://www.docker.com/) [![Airflow](https://img.shields.io/badge/Apache%20Airflow-017CEE?style=flat&logo=Apache%20Airflow&logoColor=white)](https://airflow.apache.org/)
+_A data pipeline for ingesting, validating, and publishing public phishing data feeds._
+
+**Technologies and Tools:**
+
+[![Python](https://img.shields.io/badge/python-3.11-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![Docker](https://img.shields.io/badge/docker-required-orange?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Airflow](https://img.shields.io/badge/Apache%20Airflow-017CEE?style=flat&logo=Apache%20Airflow&logoColor=white)](https://airflow.apache.org/)
+---
+
+## 📚 Table of Contents
+
+- [🌊 Overview and Core Idea](#-overview-and-core-idea)
+- [✨ Implemented Features](#-implemented-features)
+- [🏗️ Project Structure](#-project-structure)
+- [🚀 Development Setup (Local)](#-development-setup-local)
+  - [🧰 Prerequisites](#-prerequisites)
+  - [🔑 Generate Fernet Key](#-generate-fernet-key)
+  - [📖 Setup .env](#-setup-env)
+  - [🐍 Python Version Management (Important)](#-python-version-management-important)
+  - [🧪 Virtual Environment](#-virtual-environment)
+- [🚀 Quick Start](#-quick-start)
+  - [🧐 Testing](#-testing)
+- [🌟 DAG Details](#-dag-details)
 
 ---
 
@@ -51,18 +73,18 @@ The project follows a standard Airflow structure:
 
 ## 🚀 Development Setup (Local)
 
-This project is designed for Apache Airflow 1.10.15, which requires Python 3.7. Using newer Python versions (3.8+) will cause compatibility issues.
+This project is designed for Apache Airflow 2.9.3, which requires Python 3.11.14.
 
 To keep environments consistent, this repository uses pyenv and a project-local virtual environment.
 
 ### 🧰 Prerequisites
 
-- **Python**: Version: 3.7.16 **required**
+- **Python**: Version: 3.11.14 **required**
 - **pyenv (recommended for Python version management)**
 - **Docker**: Used for running Airflow
 
 ### 🔑 Generate Fernet Key
-- Apache Airflow uses a Fernet key to encrypt Variables and Connections stored in the metadata database.
+- 🔒 Apache Airflow uses a Fernet key to encrypt Variables and Connections stored in the metadata database.
 
 - You must generate a Fernet key before starting the project.
 
@@ -87,25 +109,25 @@ AWS_DEFAULT_REGION=your_aws_region
 # Fernet Key (used by Airflow to encrypt/decrypt data in db)
 AIRFLOW__CORE__FERNET_KEY=your_fernet_key
 ```
-You must create this file; otherwise, errors will occur immediately when you run the project.
+⚠️ You must create this file; otherwise, errors will occur immediately when you run the project.
 
 ### 🐍 Python Version Management (Important)
 This repository includes a `.python-version` file that specifies the Python version used for this project:
 ```bash
-3.7.16
+3.11.14
 ```
 
-If you have pyenv installed, entering the project directory will automatically switch Python to 3.7.16 (set as the local version).
+If you have pyenv installed, entering the project directory will automatically switch Python to 3.11.14 (set as the local version).
 
 If the version is not installed yet, run:
 ```bash
-pyenv install 3.7.16
+pyenv install 3.11.14
 ```
 
->💡 This does not affect your global Python installation.
+💡 This does not affect your global Python installation.
 
 ### 🧪 Virtual Environment
-It is good practice to create a virtual environment (venv).
+🐍 It is good practice to create a virtual environment (venv).
 1.  **Clone the repository:**
 
     ```bash
@@ -120,89 +142,54 @@ It is good practice to create a virtual environment (venv).
         source .venv/bin/activate
         pip install -r requirements.txt
         ```
-    - **For Windows (make sure you have python 3.7.16 installed)**:
+    - **For Windows (make sure you have python 3.11.14 installed)**:
         ```bash
-        py -3.7 -m venv .venv
+        py -3.11 -m venv .venv
         .venv/Scripts/activate
         pip install -r requirements.txt
         ```
 
-### 🧐 Testing
-1.  **Start the Airflow container:**
+## 🚀 Quick Start
+Make sure the .env is set up as described above. 
+1.  **▶️ Start the project:**
 
     ```bash
-    docker-compose up -d
+    docker compose up --build
     ```
     
-2. **Run these commands in the terminal in the project root:**
-    ```bash
-    docker exec -it phishpipe-airflow bash -c "\
-    airflow test phishing_pipeline downloader 2026-02-05 && \
-    airflow test phishing_pipeline change_verifier 2026-02-05 && \
-    airflow test phishing_pipeline publisher 2026-02-05"
-   ```
-3. **Check the logs in terminal.**
+Airflow will:
+- Wait for PostgreSQL
+- Migrate metadata DB
+- Create Admin user automatically
+- Start Scheduler & Webserver
 
-- **Note** that if you use the same data twice, you won’t see any changes in the S3 bucket, even if you delete the object from it.
-  This is because the pipeline stores hash baselines in Airflow metadata DB variables (`phishing_current_hash` and `phishing_previous_hash`).
-  If you want to test from scratch, clear these variables from Airflow UI (**Admin → Variables**) or via CLI inside the container.
----
+2. **➡️ Login:**
+
+- 🌐 URL: `http://localhost:8080`
+- 👤 Username: `admin`
+- 🔑 Password: `admin`
 
 
-## 🏃‍♂️ Running PhishPipe
-⚠️ Prerequisite: Docker and Docker Compose are required + .env with AWS credentials and Fernet key.
-
-### Using Docker Compose
-The project uses a custom Docker image that extends `puckel/docker-airflow:1.10.9` to include additional dependencies (`boto3` for S3 integration).  
-The image is built automatically by Docker Compose and requires .env file with AWS credentials.
-1. **Generate Fernet Key**
-- Apache Airflow uses a Fernet key to encrypt Variables and Connections stored in the metadata database.
-- You must generate a Fernet key before starting the project.
-- Run: 
-    ```bash
-    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-    ```
-- Example output:
-    ```bash
-    LQVB39qyWZVcAeNlF9vEswg-PF35jhwgqThCvhTOMy4=
-    ```
-- Copy the key and paste it like this `AIRFLOW__CORE__FERNET_KEY=your_fernet_key` into `.env` file
-
-2. **Setup .env**
-   - The expected structure of `.env` is as follows:
+### 🧪 Testing
+Replace `<YYYY-MM-DD>` with current date.
+- To test the downloader run:
    ```bash
-    # AWS
-    AWS_ACCESS_KEY_ID=your_aws_access_key_id
-    AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
-    AWS_DEFAULT_REGION=your_aws_region
-    
-    # Fernet Key (used by Airflow to encrypt/decrypt data in db)
-    AIRFLOW__CORE__FERNET_KEY=your_fernet_key
+   docker compose exec airflow-webserver airflow tasks test phishing_pipeline downloader <YYYY-MM-DD>
     ```
-
-3. **Start the Airflow container:**
-
+- To test the change_verifier run:
     ```bash
-    docker-compose up -d
+    docker compose exec airflow-webserver airflow tasks test phishing_pipeline change_verifier <YYYY-MM-DD>
     ```
-
-   - The Airflow webserver will be available at: http://localhost:8080
-   - The SQLite database is stored within the container at `/usr/local/airflow/airflow.db`.
-    
-    >    💡 On the first run, Docker Compose will build the custom Airflow image before starting the containers.
-
-
-4. **Stop and remove containers:**
-
+- To test s3_publisher run:
     ```bash
-    docker-compose down 
+    docker compose exec airflow-webserver airflow tasks test phishing_pipeline publisher <YYYY-MM-DD>
     ```
+*🔄 Clear hash variables in the Airflow UI (Admin → Variables) if you want to fully reset the pipeline.*
 
----
+## 🌟 DAG Details
 
-## DAG Details
-
-- **DAG:** `phishing_pipeline`
+- **DAG ID:** `phishing_pipeline`
+- **Schedule:** @daily
 - **Action:** Downloads a phishing feed CSV, compares current vs previous stored hashes, and uploads the current file to S3 only when a change is detected.
 - **Source:** `http://svn.code.sf.net/p/aper/code/phishing_reply_addresses`
 - **Output:** `s3://phishpipe-bucket/phishing/phishing_current.csv`
