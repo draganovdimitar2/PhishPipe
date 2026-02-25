@@ -61,6 +61,30 @@ test2@example.com
 
         output_file.unlink()
 
+    @patch("plugins.operators.phishing_getter.Variable.set")
+    @patch("plugins.operators.phishing_getter.requests.get")
+    def test_empty_feed(self, mock_get, mock_set):
+        """Test whether file is cleaned properly from blank lines and `#`"""
+        fake_response = MagicMock()
+        fake_response.text = "# only comments\n\n# more comments"
+        fake_response.raise_for_status.return_value = None
+        mock_get.return_value = fake_response
+
+        output_file = Path("data/empty_feed.txt")
+        operator = PhishingGetterOperator(
+            task_id="test_task",
+            output_path=str(output_file),
+            url="http://fake-url.com",
+            hash_variable_key="test_hash"
+        )
+
+        result = operator.execute(context={})
+
+        content = output_file.read_text()
+        assert content == ""  # nothing should be written
+        mock_set.assert_called_once()  # hash still computed
+        output_file.unlink()
+
 
 if __name__ == "__main__":
     unittest.main()

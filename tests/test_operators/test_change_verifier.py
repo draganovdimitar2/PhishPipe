@@ -79,6 +79,27 @@ class TestChangeVerifierOperator(unittest.TestCase):
 
         test_file.unlink()
 
+    @patch("plugins.operators.change_verifier.Variable.set")
+    @patch("plugins.operators.change_verifier.Variable.get")
+    def test_hash_changed_updates_previous_hash(self, mock_get, mock_set):
+        """Test when hash is changed whether previous hash is updated"""
+        test_file = Path("data.txt")
+        test_file.write_text("dummy")
+
+        mock_get.side_effect = ["currenthash", "previoushash"]  # current != previous
+
+        operator = ChangeVerifierOperator(
+            task_id="verify",
+            current_file=str(test_file),
+            current_hash_variable_key="current",
+            previous_hash_variable_key="previous"
+        )
+
+        operator.execute(context={})
+
+        mock_set.assert_called_once_with("previous", "currenthash")
+        test_file.unlink()
+
 
 if __name__ == "__main__":
     unittest.main()
