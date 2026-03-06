@@ -3,6 +3,7 @@ from airflow import DAG
 from operators.phishing_getter import PhishingGetterOperator
 from operators.change_verifier import ChangeVerifierOperator
 from operators.s3_publisher import S3PublisherOperator
+from operators.kafka_notifier import KafkaNotifierOperator
 from config import (
     PHISHING_FEED_URL,
     PHISHING_CURRENT_FILE_PATH,
@@ -49,4 +50,15 @@ with DAG(
         s3_prefix='phishing',
     )
 
-    downloader >> change_verifier >> publisher
+    kafka_notifier = KafkaNotifierOperator(
+        task_id='kafka_notifier',
+        topic='phishing_updates',
+        bootstrap_servers='kafka:9092',
+        message={
+            "event": "new_phishing_data",
+            "file": PHISHING_CURRENT_FILE_PATH,
+            "timestamp": str(datetime.utcnow())
+        },
+    )
+
+    downloader >> change_verifier >> publisher >> kafka_notifier
