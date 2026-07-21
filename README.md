@@ -1,12 +1,15 @@
 # 🎣 PhishPipe Airflow Project
 
-_A data pipeline for ingesting, validating, and publishing public phishing data feeds._
+_A data pipeline for ingesting, validating, and publishing public phishing data feeds with Apache Spark processing._
 
 **Technologies and Tools:**
 
 [![Python](https://img.shields.io/badge/python-3.11-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![Scala](https://img.shields.io/badge/Scala-2.12-red?logo=scala&logoColor=white)](https://www.scala-lang.org/)
+[![Apache Spark](https://img.shields.io/badge/Apache%20Spark-017CEE?style=flat&logo=Apache%20Spark&logoColor=white)](https://spark.apache.org/)
 [![Docker](https://img.shields.io/badge/docker-required-orange?logo=docker&logoColor=white)](https://www.docker.com/)
 [![Airflow](https://img.shields.io/badge/Apache%20Airflow-017CEE?style=flat&logo=Apache%20Airflow&logoColor=white)](https://airflow.apache.org/)
+
 ---
 
 ## 📚 Table of Contents
@@ -21,7 +24,7 @@ _A data pipeline for ingesting, validating, and publishing public phishing data 
   - [🐍 Python Version Management (Important)](#-python-version-management-important)
   - [🧪 Virtual Environment](#-virtual-environment)
 - [🚀 Quick Start](#-quick-start)
-  - [🧐 Testing](#-testing)
+  - [🧪 Testing](#-testing)
 - [🌟 DAG Details](#-dag-details)
 
 ---
@@ -30,9 +33,9 @@ _A data pipeline for ingesting, validating, and publishing public phishing data 
 
 **PhishPipe** is an Apache Airflow project that implements an end-to-end pipeline for ingesting, validating, and publishing a public phishing data feed.
 
-The pipeline uses a custom PhishingGetterOperator to download a free phishing feed provided by Google, persist it locally, and save its content hash in Airflow's metadata DB. A scheduled DAG then verifies whether the newly downloaded hash differs from the previous processed hash. If changes are detected, the updated dataset is published to Amazon S3 using a configurable S3PublisherOperator.
+The pipeline uses a custom PhishingGetterOperator to download a free phishing feed provided by Google, persist it locally, and save its content hash in Airflow's metadata DB. A scheduled DAG then processes the data using Apache Spark (with Scala processing components) and uploads validated results to Amazon S3 only when changes are detected.
 
-The project is designed to run entirely in a Dockerized Airflow environment, enabling fast local development and testing. DAGs and custom operators are mounted as volumes, allowing changes to be tested immediately using the airflow test command without restarting the scheduler.
+The project is designed to run entirely in a Dockerized Airflow environment, enabling fast local development and testing. DAGs and custom operators are mounted as volumes, allowing changes to be tested without rebuilding images.
 
 ---
 
@@ -40,48 +43,96 @@ The project is designed to run entirely in a Dockerized Airflow environment, ena
 
 - **Automated Data Fetching**: Downloads a public phishing feed on a schedule using a custom Airflow operator.
 - **Change Detection**: Verifies whether newly downloaded data differs from the previous run using hashes stored in Airflow metadata DB variables.
-- **Custom Airflow Operators**: Implements reusable operators for data ingestion and validation.
+- **Spark-based Data Processing**: Leverages Apache Spark with Scala transformations for scalable data processing.
+- **Custom Airflow Operators**: Implements reusable operators for data ingestion, validation, and publishing.
 - **Dockerized Airflow Environment**: Runs entirely in Docker using Docker Compose for easy setup and testing.
+- **S3 Integration**: Securely uploads processed data to Amazon S3.
 - **Clear Project Structure**: Organized to support extensibility and maintainability.
 
 ---
 
 ## 🏗️ Project Structure
 
-The project follows a standard Airflow structure:
+The project follows a modular architecture designed for scalability and maintainability:
 
 ```text
-.
-├── dags/                 
-│   └── phishing_pipeline.py   
-├── data/  
-├── plugins/              
-│   ├── operators/        
-│   │   ├── phishing_getter.py
-│   │   ├── change_verifier.py
-│   │   └── s3_publisher.py
-│   └── config.py
-├── .python-version                                  
-├── docker-compose.yaml     
-├── Dockerfile    
-├── README.md    
-├── .env   
-└── requirements.txt   
+PhishPipe/
+│
+├── airflow/                          # Apache Airflow components
+│   ├── dags/                         # DAG definitions
+│   │   └── phishing_pipeline.py      # Main orchestration DAG
+│   │
+│   ├── plugins/                      # Custom Airflow operators and utilities
+│   │   ├── operators/                # Custom operators
+│   │   │   ├── phishing_getter.py    # Data fetcher operator
+│   │   │   ├── change_verifier.py    # Change detection operator
+│   │   │   └── s3_publisher.py       # S3 upload operator
+│   │   └── config.py                 # Configuration utilities
+│   │
+│   └── logs/                         # DAG execution logs
+│
+├── spark/                            # Apache Spark components
+│   ├── scala/                        # Scala-based Spark jobs
+│   │   └── src/
+│   │       └── main/
+│   │           └── scala/
+│   │               └── com/phishpipe/
+│   │                   ├── processors/       # Data processors
+│   │                   ├── models/           # Data models
+│   │                   └── utils/            # Utility functions
+│   │
+│   ├── jobs/                         # Spark job submission scripts
+│   ├── build.sbt                     # Scala project configuration
+│   └── requirements.txt              # Python dependencies for Spark
+│
+├── data/                             # Local data storage
+│   └── phishing/                     # Downloaded phishing data
+│
+├── config/                           # Configuration files
+│   ├── spark-defaults.conf           # Spark configuration
+│   └── environment.properties        # Environment settings
+│
+├── docker/                           # Docker configuration
+│   ├── Dockerfile                    # Airflow container
+│   ├── Dockerfile.spark              # Spark container
+│   └── docker-compose.yaml           # Multi-container orchestration
+│
+├── scripts/                          # Utility scripts
+│   ├── setup.sh                      # Setup script
+│   └── test.sh                       # Testing script
+│
+├── .python-version                   # Python version (pyenv)
+├── .env.example                      # Example environment variables
+├── .env                              # Environment variables (create from example)
+├── requirements.txt                  # Python dependencies
+├── README.md                         # This file
+└── .gitignore                        # Git ignore patterns
 ```
+
+### Directory Descriptions:
+
+- **airflow/**: Contains all Apache Airflow-specific code including DAGs and custom operators
+- **spark/**: Houses Apache Spark jobs written in Scala for advanced data processing
+- **data/**: Local storage for downloaded and processed phishing data
+- **config/**: Configuration files for both Spark and Airflow
+- **docker/**: Docker setup for containerized deployment
+- **scripts/**: Utility scripts for setup, testing, and maintenance
 
 ---
 
 ## 🚀 Development Setup (Local)
 
-This project is designed for Apache Airflow 2.9.3, which requires Python 3.11.14.
+This project is designed for Apache Airflow 2.9.3 (Python 3.11.14) with Apache Spark and Scala support.
 
 To keep environments consistent, this repository uses pyenv and a project-local virtual environment.
 
 ### 🧰 Prerequisites
 
 - **Python**: Version: 3.11.14 **required**
-- **pyenv (recommended for Python version management)**
-- **Docker**: Used for running Airflow
+- **pyenv** (recommended for Python version management)
+- **Docker**: Used for running Airflow and Spark
+- **Scala**: 2.12+ (for Spark job development)
+- **Apache Spark**: 3.x (containerized, no local installation needed)
 
 ### 🔑 Generate Fernet Key
 - 🔒 Apache Airflow uses a Fernet key to encrypt Variables and Connections stored in the metadata database.
@@ -108,6 +159,10 @@ AWS_DEFAULT_REGION=your_aws_region
     
 # Fernet Key (used by Airflow to encrypt/decrypt data in db)
 AIRFLOW__CORE__FERNET_KEY=your_fernet_key
+
+# Spark Configuration (optional)
+SPARK_MASTER=spark://spark-master:7077
+SPARK_WORKER_MEMORY=2g
 ```
 ⚠️ You must create this file; otherwise, errors will occur immediately when you run the project.
 
@@ -162,6 +217,7 @@ Airflow will:
 - Migrate metadata DB
 - Create Admin user automatically
 - Start Scheduler & Webserver
+- Start Spark cluster (if configured)
 
 2. **➡️ Login:**
 
@@ -190,8 +246,9 @@ Replace `<YYYY-MM-DD>` with current date.
 
 - **DAG ID:** `phishing_pipeline`
 - **Schedule:** @daily
-- **Action:** Downloads a phishing feed CSV, compares current vs previous stored hashes, and uploads the current file to S3 only when a change is detected.
+- **Action:** Downloads a phishing feed CSV, compares current vs previous stored hashes using Spark transformations, and uploads the current file to S3 only when a change is detected.
 - **Source:** `http://svn.code.sf.net/p/aper/code/phishing_reply_addresses`
 - **Output:** `s3://phishpipe-bucket/phishing/phishing_current.csv`
+- **Processing Engine:** Apache Spark with Scala transformations
 
 ---
