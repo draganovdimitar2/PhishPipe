@@ -1,6 +1,30 @@
+import os
+import sys
+import types
 import unittest
-from unittest.mock import patch, MagicMock
 from pathlib import Path
+from unittest.mock import patch, MagicMock
+
+from botocore.exceptions import ClientError
+
+# Provide a dummy fcntl module on Windows so Airflow imports succeed during tests.
+if sys.platform == "win32":
+    fcntl = types.ModuleType("fcntl")
+    fcntl.flock = lambda *args, **kwargs: None
+    fcntl.lockf = lambda *args, **kwargs: None
+    sys.modules["fcntl"] = fcntl
+
+# Set Airflow environment variables before importing Airflow-dependent modules.
+AIRFLOW_HOME = os.path.abspath("airflow_home")
+os.makedirs(AIRFLOW_HOME, exist_ok=True)
+os.makedirs(os.path.join(AIRFLOW_HOME, "logs"), exist_ok=True)
+os.environ.setdefault("AIRFLOW_HOME", AIRFLOW_HOME)
+os.environ.setdefault("AIRFLOW__CORE__BASE_LOG_FOLDER", os.path.join(AIRFLOW_HOME, "logs"))
+os.environ.setdefault(
+    "AIRFLOW__CORE__SQL_ALCHEMY_CONN",
+    f"sqlite:////{os.path.abspath(os.path.join(AIRFLOW_HOME, 'airflow.db')).replace('\\', '/')}"
+)
+
 from plugins.operators.s3_publisher import S3PublisherOperator
 
 
@@ -35,12 +59,36 @@ class TestS3PublisherOperator(unittest.TestCase):
 
         mock_boto_client.assert_called_once_with("s3")
 
-    def test_path_does_not_exist_raises(self):
+    @patch("plugins.operators.s3_publisher.boto3.client")
+    def test_ensure_bucket_exists_creates_missing_bucket(self, mock_boto_client):
+        mock_s3 = MagicMock()
+        mock_s3.head_bucket.side_effect = ClientError(
+            {"Error": {"Code": "404", "Message": "Not Found"}},
+            "HeadBucket"
+        )
+        mock_boto_client.return_value = mock_s3
+
+        operator = S3PublisherOperator(
+            task_id="upload",
+            bucket_name="missing-bucket",
+            paths=["file.txt"]
+        )
+
+        operator._ensure_bucket_exists(mock_s3)
+
+        mock_s3.create_bucket.assert_called_once_with(Bucket="missing-bucket")
+
+    @patch("plugins.operators.s3_publisher.boto3.client")
+    def test_path_does_not_exist_raises(self, mock_boto_client):
         """Test with some fake path and it should raise an error"""
+        mock_s3 = MagicMock()
+        mock_boto_client.return_value = mock_s3
+
         operator = S3PublisherOperator(
             task_id="upload",
             bucket_name="my-bucket",
-            paths=["fake_path.txt"]  # fake path
+            paths=["fake_path.txt"],
+            create_bucket_if_missing=False
         )
 
         with self.assertRaises(FileNotFoundError):

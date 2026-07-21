@@ -79,16 +79,11 @@ class PhishingGetterOperator(BaseOperator):
 
         os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
 
-        hasher = hashlib.md5()
-        with open(self.output_path, "w") as f:
-            for line in response.text.splitlines():
-                if line.startswith("#") or not line.strip():  # remove empty lines or lines starting with "#"
-                    continue
-                normalized_line = line + "\n"
-                f.write(normalized_line)
-                hasher.update(normalized_line.encode("utf-8"))
+        content = response.text
+        with open(self.output_path, "w", encoding="utf-8", newline="") as f:
+            f.write(content)
 
-        current_hash = hasher.hexdigest()
+        current_hash = hashlib.md5(content.encode("utf-8")).hexdigest()
         Variable.set(self.hash_variable_key, current_hash)
         self.log.info(f"Downloaded and saved to {self.output_path} with hash {current_hash}")
 

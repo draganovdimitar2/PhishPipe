@@ -1,5 +1,6 @@
 from datetime import timedelta, datetime
 from airflow import DAG
+from airflow.operators.bash import BashOperator
 from operators.phishing_getter import PhishingGetterOperator
 from operators.change_verifier import ChangeVerifierOperator
 from operators.s3_publisher import S3PublisherOperator
@@ -7,8 +8,10 @@ from operators.kafka_notifier import KafkaNotifierOperator
 from config import (
     PHISHING_FEED_URL,
     PHISHING_CURRENT_FILE_PATH,
+    PHISHING_PROCESSED_DIR_PATH,
     PHISHING_CURRENT_HASH_VARIABLE_KEY,
     PHISHING_PREVIOUS_HASH_VARIABLE_KEY,
+    JAR_PATH
 )
 
 default_args = {
@@ -43,10 +46,24 @@ with DAG(
         previous_hash_variable_key=PHISHING_PREVIOUS_HASH_VARIABLE_KEY,
     )
 
+    processor = BashOperator(
+        task_id='processor',
+        bash_command=(
+            f'rm -rf {PHISHING_PROCESSED_DIR_PATH} && '
+            '/opt/spark/bin/spark-submit '
+            '--master local[*] '
+            '--class com.phishpipe.processors.Processor '
+            f'{JAR_PATH} '
+            f'{PHISHING_CURRENT_FILE_PATH} '
+            f'{PHISHING_PROCESSED_DIR_PATH}'
+        ),
+        dag=dag,
+    )
+
     publisher = S3PublisherOperator(
         task_id='publisher',
         bucket_name='phishpipe-bucket',
-        paths=[PHISHING_CURRENT_FILE_PATH],
+        paths=[PHISHING_PROCESSED_DIR_PATH],
         s3_prefix='phishing',
     )
 
@@ -56,9 +73,9 @@ with DAG(
         bootstrap_servers='kafka:9092',
         message={
             "event": "new_phishing_data",
-            "file": PHISHING_CURRENT_FILE_PATH,
+            "file": PHISHING_PROCESSED_DIR_PATH,
             "timestamp": str(datetime.utcnow())
         },
     )
 
-    downloader >> change_verifier >> publisher >> kafka_notifier
+    downloader >> change_verifier >> processor >> publisher >> kafka_notifier

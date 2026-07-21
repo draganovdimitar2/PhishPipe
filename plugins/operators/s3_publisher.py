@@ -1,7 +1,14 @@
 import os
 from typing import Any, List, Optional
 import boto3
-from airflow.models import BaseOperator
+from botocore.exceptions import ClientError
+
+try:
+    from airflow.models import BaseOperator
+except (ImportError, ModuleNotFoundError):
+    class BaseOperator:
+        def __init__(self, *args: Any, **kwargs: Any):
+            pass
 
 
 class S3PublisherOperator(BaseOperator):
@@ -17,28 +24,38 @@ class S3PublisherOperator(BaseOperator):
 
     def __init__(
         self,
-        bucket_name : str,
+        bucket_name: str,
         paths: List[str],
         s3_prefix: str = "",
+        create_bucket_if_missing: bool = True,
         **kwargs: Any
     ):
         super().__init__(**kwargs)
         self.bucket_name = bucket_name
         self.paths = paths
         self.s3_prefix = s3_prefix.strip("/")  # remove leading/trailing slashes
+        self.create_bucket_if_missing = create_bucket_if_missing
         self._s3_client: Optional[Any] = None  # will initialize lazily when needed
 
     def _get_s3_client(self) -> Any:
         """
         Lazily initialize the boto3 S3 client.
         This avoids creating the client during DAG parsing, which is good for performance.
+        
+        Supports LocalStack endpoint URL via AWS_S3_ENDPOINT_URL environment variable
+        for local S3 mocking.
 
         Returns:
             boto3.client: S3 client instance
         """
         if self._s3_client is None:
             self.log.info("Initializing S3 client")
-            self._s3_client = boto3.client("s3")
+            endpoint_url = os.getenv("AWS_S3_ENDPOINT_URL")
+            if endpoint_url:
+                self.log.info(f"Using custom S3 endpoint: {endpoint_url}")
+                self._s3_client = boto3.client("s3", endpoint_url=endpoint_url)
+            else:
+                self._s3_client = boto3.client("s3")
         return self._s3_client
 
     def execute(self, context: dict) -> None:
@@ -54,6 +71,9 @@ class S3PublisherOperator(BaseOperator):
             context (dict): Airflow execution context
         """
         s3 = self._get_s3_client()
+
+        if self.create_bucket_if_missing:
+            self._ensure_bucket_exists(s3)
 
         for path in self.paths:
             if not os.path.exists(path):
@@ -90,6 +110,29 @@ class S3PublisherOperator(BaseOperator):
                 key = self._s3_key(full_path, base_path=dir_path)
                 self.log.info(f"Uploading {full_path} to s3://{self.bucket_name}/{key}")
                 s3.upload_file(full_path, self.bucket_name, key)
+
+    def _ensure_bucket_exists(self, s3: Any) -> None:
+        """
+        Ensure the target S3 bucket exists before uploading.
+
+        Args:
+            s3 (boto3.client): S3 client instance
+        """
+        try:
+            self.log.info(f"Checking whether S3 bucket exists: {self.bucket_name}")
+            s3.head_bucket(Bucket=self.bucket_name)
+            self.log.info(f"S3 bucket already exists: {self.bucket_name}")
+        except ClientError as exc:
+            error_code = exc.response.get("Error", {}).get("Code")
+            if error_code in ("404", "NoSuchBucket", "NotFound"):
+                self.log.info(f"Creating missing S3 bucket: {self.bucket_name}")
+                create_kwargs = {"Bucket": self.bucket_name}
+                region = os.getenv("AWS_DEFAULT_REGION")
+                if region and region != "us-east-1":
+                    create_kwargs["CreateBucketConfiguration"] = {"LocationConstraint": region}
+                s3.create_bucket(**create_kwargs)
+            else:
+                raise
 
     def _s3_key(self, path: str, base_path: Optional[str] = None) -> str:
         """

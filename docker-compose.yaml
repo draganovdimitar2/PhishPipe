@@ -43,6 +43,23 @@ services:
     networks:
       - airflow-network
 
+  localstack:
+    image: localstack/localstack:1.4
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: s3
+      DEBUG: 1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+    networks:
+      - airflow-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/health"]
+      interval: 5s
+      retries: 5
+
   airflow-init:
     build: .
     env_file:
@@ -84,6 +101,7 @@ services:
       - ./plugins:/opt/airflow/plugins
       - ./data:/opt/airflow/data
       - ./logs:/opt/airflow/logs
+      - ./jars:/opt/airflow/jars
     command: airflow webserver
     networks:
       - airflow-network
@@ -110,6 +128,7 @@ services:
       - ./plugins:/opt/airflow/plugins
       - ./data:/opt/airflow/data
       - ./logs:/opt/airflow/logs
+      - ./jars:/opt/airflow/jars
     command: airflow scheduler
     networks:
       - airflow-network
@@ -118,6 +137,7 @@ services:
 
 volumes:
   postgres_data:
+  localstack_data:
 
 networks:
   airflow-network:

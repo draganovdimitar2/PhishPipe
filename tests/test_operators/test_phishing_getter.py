@@ -51,9 +51,9 @@ test2@example.com
         self.assertTrue(output_file.exists())
 
         content = output_file.read_text()
+        self.assertIn("# comment", content)
         self.assertIn("test1@example.com", content)
         self.assertIn("test2@example.com", content)
-        self.assertNotIn("#", content)
 
         mock_variable_set.assert_called_once()
 
@@ -81,7 +81,7 @@ test2@example.com
         result = operator.execute(context={})
 
         content = output_file.read_text()
-        assert content == ""  # nothing should be written
+        self.assertEqual(content, "# only comments\n\n# more comments")
         mock_set.assert_called_once()  # hash still computed
         output_file.unlink()
 
