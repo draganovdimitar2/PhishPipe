@@ -33,9 +33,9 @@ _A data pipeline for ingesting, validating, and publishing public phishing data 
 
 **PhishPipe** is an Apache Airflow project that implements an end-to-end pipeline for ingesting, validating, and publishing a public phishing data feed.
 
-The pipeline uses a custom PhishingGetterOperator to download a free phishing feed provided by Google, persist it locally, and save its content hash in Airflow's metadata DB. A scheduled DAG then processes the data using Apache Spark (with Scala processing components) and uploads validated results to Amazon S3 only when changes are detected.
+The pipeline uses a custom PhishingGetterOperator to download a free phishing feed provided by Google, persist it locally, and save its content hash in Airflow's metadata DB. A scheduled DAG then verifies if the feed has changed; if so, it processes the data using Apache Spark with Scala transformations and uploads the result to Amazon S3.
 
-The project is designed to run entirely in a Dockerized Airflow environment, enabling fast local development and testing. DAGs and custom operators are mounted as volumes, allowing changes to be tested without rebuilding images.
+The project is designed to run entirely in a Dockerized Airflow environment, enabling fast local development and testing. DAGs and custom operators are mounted as volumes, allowing changes to be tested without rebuilding containers.
 
 ---
 
@@ -58,65 +58,52 @@ The project follows a modular architecture designed for scalability and maintain
 ```text
 PhishPipe/
 │
-├── airflow/                          # Apache Airflow components
-│   ├── dags/                         # DAG definitions
-│   │   └── phishing_pipeline.py      # Main orchestration DAG
-│   │
-│   ├── plugins/                      # Custom Airflow operators and utilities
-│   │   ├── operators/                # Custom operators
-│   │   │   ├── phishing_getter.py    # Data fetcher operator
-│   │   │   ├── change_verifier.py    # Change detection operator
-│   │   │   └── s3_publisher.py       # S3 upload operator
-│   │   └── config.py                 # Configuration utilities
-│   │
-│   └── logs/                         # DAG execution logs
+├── .github/workflows/                    # GitHub Actions CI/CD pipelines
+│   └── ci/                               # Continuous Integration workflows
 │
-├── spark/                            # Apache Spark components
-│   ├── scala/                        # Scala-based Spark jobs
-│   │   └── src/
-│   │       └── main/
-│   │           └── scala/
-│   │               └── com/phishpipe/
-│   │                   ├── processors/       # Data processors
-│   │                   ├── models/           # Data models
-│   │                   └── utils/            # Utility functions
-│   │
-│   ├── jobs/                         # Spark job submission scripts
-│   ├── build.sbt                     # Scala project configuration
-│   └── requirements.txt              # Python dependencies for Spark
+├── dags/                                 # Apache Airflow DAG definitions
+│   └── phishing_pipeline.py              # Main orchestration DAG
 │
-├── data/                             # Local data storage
-│   └── phishing/                     # Downloaded phishing data
+├── plugins/                              # Custom Airflow operators and utilities
+│   ├── operators/                        # Custom operators
+│   │   ├── phishing_getter.py            # Data fetcher operator
+│   │   ├── change_verifier.py            # Change detection operator
+│   │   └── s3_publisher.py               # S3 upload operator
+│   └── config.py                         # Configuration utilities
 │
-├── config/                           # Configuration files
-│   ├── spark-defaults.conf           # Spark configuration
-│   └── environment.properties        # Environment settings
+├── project/                              # Project configuration and build files
+│   └── (Airflow and Spark configs)
 │
-├── docker/                           # Docker configuration
-│   ├── Dockerfile                    # Airflow container
-│   ├── Dockerfile.spark              # Spark container
-│   └── docker-compose.yaml           # Multi-container orchestration
+├── src/main/scala/com/phishpipe/         # Apache Spark Scala codebase
+│   └── processors/                       # Data processing logic
 │
-├── scripts/                          # Utility scripts
-│   ├── setup.sh                      # Setup script
-│   └── test.sh                       # Testing script
+├── tests/                                # Test suite
+│   └── test_operators/                   # Unit tests for custom operators
 │
-├── .python-version                   # Python version (pyenv)
-├── .env.example                      # Example environment variables
-├── .env                              # Environment variables (create from example)
-├── requirements.txt                  # Python dependencies
-├── README.md                         # This file
-└── .gitignore                        # Git ignore patterns
+├── docker/                               # Docker configuration
+│   ├── Dockerfile                        # Airflow container image
+│   └── docker-compose.yaml               # Multi-container orchestration
+│
+├── .github/workflows                     # GitHub Actions workflows
+├── .gitignore                            # Git ignore patterns
+├── .python-version                       # Python version specification (pyenv)
+├── .scalafmt.conf                        # Scala code formatter configuration
+├── build.sbt                             # Scala/Spark project build configuration
+├── Dockerfile                            # Main application Docker image
+├── docker-compose.yaml                   # Docker Compose configuration
+├── requirements.txt                      # Python dependencies
+├── README.md                             # This file
+└── (other config files)
 ```
 
 ### Directory Descriptions:
 
-- **airflow/**: Contains all Apache Airflow-specific code including DAGs and custom operators
-- **spark/**: Houses Apache Spark jobs written in Scala for advanced data processing
-- **data/**: Local storage for downloaded and processed phishing data
-- **config/**: Configuration files for both Spark and Airflow
-- **docker/**: Docker setup for containerized deployment
-- **scripts/**: Utility scripts for setup, testing, and maintenance
+- **dags/**: Contains all Apache Airflow DAG definitions
+- **plugins/**: Custom Airflow operators and utilities for DAG tasks
+- **src/main/scala/com/phishpipe/**: Apache Spark jobs written in Scala for advanced data processing
+- **tests/**: Unit and integration tests for operators and processors
+- **project/**: Build and project configuration files
+- **.github/workflows/**: CI/CD pipelines for automated testing and deployment
 
 ---
 
