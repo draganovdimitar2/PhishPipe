@@ -20,9 +20,13 @@ os.makedirs(AIRFLOW_HOME, exist_ok=True)
 os.makedirs(os.path.join(AIRFLOW_HOME, "logs"), exist_ok=True)
 os.environ.setdefault("AIRFLOW_HOME", AIRFLOW_HOME)
 os.environ.setdefault("AIRFLOW__CORE__BASE_LOG_FOLDER", os.path.join(AIRFLOW_HOME, "logs"))
+db_path = os.path.abspath(
+    os.path.join(AIRFLOW_HOME, "airflow.db")
+).replace("\\", "/")
+
 os.environ.setdefault(
     "AIRFLOW__CORE__SQL_ALCHEMY_CONN",
-    f"sqlite:////{os.path.abspath(os.path.join(AIRFLOW_HOME, 'airflow.db')).replace('\\', '/')}"
+    f"sqlite:////{db_path}"
 )
 
 from plugins.operators.s3_publisher import S3PublisherOperator
